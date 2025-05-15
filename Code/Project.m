@@ -1,4 +1,5 @@
-%% Simulating Hash Table Performance
+clear all; close all; clc;
+%% Normal Hash table
 
 % Making the hash function
 function index = simpleHash(ip, tableSize)
@@ -10,7 +11,7 @@ function index = simpleHash(ip, tableSize)
 end
 
 % Insert function for hash table. With chaining in case of collision
-function hashTable = insert(hashTable, ip, next, tableSize)
+function hashTable = hashInsert(hashTable, ip, next, tableSize)
     index = simpleHash(ip, tableSize);
     
     %Check if the cell is empty
@@ -22,7 +23,7 @@ function hashTable = insert(hashTable, ip, next, tableSize)
 end
 
 % Lookup function for the hash table
-function result = lookup(hashTable, ip, tableSize)
+function result = hashLookup(hashTable, ip, tableSize)
     index = simpleHash(ip, tableSize);
     bucket = hashTable{index}; %bucket because of chaining
 
@@ -38,29 +39,106 @@ function result = lookup(hashTable, ip, tableSize)
 end
 
 
-%Generate a list of IP addresses
-function ipList = generateRandomIP(tableSize)
-    ipList = randi([0, 2^32-1], tableSize, 1, 'uint32');
+%% D-Left Hashing
+
+% Hash function with a seed
+function index = dLeftHash(ip, subtableSize, seed)
+    prime = 31 + seed*2;
+    hash = mod(prime*double(ip), 2^32);
+    index = mod(hash, subtableSize)+1;
 end
 
-tableSize = 100;
-hashTable = cell(1, tableSize);
+% Insert function for d-left hashing
+function hashTable = dLeftInsert(hashTable, ip, next, d, subtableSize)
+    minLen = inf; %Starting off at infinity for comparison
+    chosenSub = 1; %Default starting sub table
+
+    for i = 1:d
+        index = dLeftHash(ip, subtableSize, i);
+        if isempty(hashTable{i}{index}) %check if that space is empty
+            hashTable{i}{index} = struct('ip', ip, 'value', next);
+            return;
+        else 
+            currentLen = length(hashTable{i}{index}); %Check the current length to find the subtable with the shortest length
+            if currentLen < minLen
+                minLen = currentLen;
+                chosenSub = i;
+                bestIndex = index;
+            end
+        end
+    end
+
+    %Insert the IP address into the least loaded subTable
+    hashTable{chosenSub}{bestIndex}{end+1} = {ip, value}; %Chaining
+end
+
+
+%Look up function for d-left hashing
+function result = dLeftLookup(hashTable, ip, d, subtableSize)
+    result = "Miss";
+    for i = 1:d %Look through all of the sub tables
+        index = dLeftHash(ip, subtableSize, i);
+        bucket = hashTable{i}{index};
+        if ~isempty(bucket) % If the bucket is not empty
+            for j = 1:length(bucket) %Look through all of the chained values
+                if bucket{j}.ip==ip
+                    result = bucket{j}.value;
+                    return;
+                end
+            end
+        end
+    end
+    %Otherwise, it is a miss
+end
+
+
+%% Testing All the different algorithms
+numberOfIPs = 10000;
+%Generate a list of IP addresses
+function ipList = generateRandomIP(numberOfIPs)
+    ipList = randi([0, 2^32-1], numberOfIPs, 1, 'uint32');
+end
+
+ipList = generateRandomIP(numberOfIPs);
 
 %Generate the hash table of ips
-ipList = generateRandomIP(tableSize);
+hashTable = cell(1, numberOfIPs);
 for i = 1:length(ipList)
     ip = ipList(i);
-    insert(hashTable, ip, i, tableSize);
+    hashInsert(hashTable, ip, i, numberOfIPs);
 end
 
-%Time lookup time
+%Generate the d-left hash table of ips
+d = 4; %number of sub tables
+subtableSize = ceil(numberOfIPs/4); %Must contain all of the entries
+
+%Iniitilize d-left hash table
+dLeftHashTable = cell(1, d);
+for i = 1:d
+    dLeftHashTable{i} = cell(1, subtableSize);
+end
+
+%Insert the IPs into the hashTable
+for i = 1:length(ipList)
+    ip = ipList(i);
+    dLeftInsert(dLeftHashTable, ip, i, d, subtableSize);
+end
+
+%Time lookup time for Hash Table
 tic;
 for i = 1:length(ipList)
     ip = ipList(i);
-    next = lookup(hashTable, ip, tableSize);
+    next = hashLookup(hashTable, ip, numberOfIPs);
 end
-elapsedTime = toc;
-fprintf('Average lookup time: %.6f ms\n', (elapsedTime / tableSize) * 1000);
+elapsedTimeHash = toc;
+fprintf('Average lookup time for Hash table with %d entries: %.6f ms\n', numberOfIPs, (elapsedTimeHash / numberOfIPs) * 1000);
 
 
-
+%Time lookup time for d-Left Hash Table
+tic;
+for i = 1:length(ipList)
+    ip = ipList(i);
+    next = dLeftLookup(dLeftHashTable, ip, d, subtableSize);
+end
+elapsedTimeHash = toc;
+fprintf('Average lookup time for d-left Hash table with %d entries: %.6f ms\n', numberOfIPs, (elapsedTimeHash / numberOfIPs) * 1000);
