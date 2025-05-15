@@ -2,9 +2,12 @@
 
 % Making the hash function
 function index = simpleHash(ip, tableSize)
+    hash = 0;
     %prime number used for hashing
     prime = 31; 
-    hash = mod(prime*double(ip), 2^32); %Using 2^32 as int is 32 bits to avoid overflow
+    for i = 1:length(ip)
+        hash = mod(hash * prime + double(str(i)), 2^32); %modding to the base of 2^32 to avoid overflow as interger is only 32 bits
+    end
 
     index = mod(hash, tableSize);
 end
@@ -24,26 +27,8 @@ end
 % Lookup function for the hash table
 function result = lookup(hashTable, ip, tableSize)
     index = simpleHash(ip, tableSize);
-    bucket = hashTable{index}; %bucket because of chaining
-
-    result = "Miss"; %Assume it is a miss at the beginning
-    if ~isempty(bucket)
-        for i = 1:size(bucket, 1)
-            if isequal(bucket{i, 1}, ip)
-                result = bucket{i, 2};
-                return;
-            end
-        end
-    end
-end
-
-
-%Generate a list of IP addresses
-function ipList = generateRandomIP(tableSize)
-    ipList = randi([0, 2^32-1], tableSize, 1, 'uint32');
+    bucket = hashTable{in}
 end
 
 tableSize = 10;
 hashTable = cell(1, tableSize);
-
-%Generate the hash table
