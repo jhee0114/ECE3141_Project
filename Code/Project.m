@@ -6,7 +6,7 @@ function index = simpleHash(ip, tableSize)
     prime = 31; 
     hash = mod(prime*double(ip), 2^32); %Using 2^32 as int is 32 bits to avoid overflow
 
-    index = mod(hash, tableSize);
+    index = mod(hash, tableSize)+1; %matlab indexing starts at 1
 end
 
 % Insert function for hash table. With chaining in case of collision
@@ -43,7 +43,24 @@ function ipList = generateRandomIP(tableSize)
     ipList = randi([0, 2^32-1], tableSize, 1, 'uint32');
 end
 
-tableSize = 10;
+tableSize = 100;
 hashTable = cell(1, tableSize);
 
-%Generate the hash table
+%Generate the hash table of ips
+ipList = generateRandomIP(tableSize);
+for i = 1:length(ipList)
+    ip = ipList(i);
+    insert(hashTable, ip, i, tableSize);
+end
+
+%Time lookup time
+tic;
+for i = 1:length(ipList)
+    ip = ipList(i);
+    next = lookup(hashTable, ip, tableSize);
+end
+elapsedTime = toc;
+fprintf('Average lookup time: %.6f ms\n', (elapsedTime / tableSize) * 1000);
+
+
+
