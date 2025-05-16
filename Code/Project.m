@@ -271,39 +271,38 @@ for idx = 1:length(ipCounts)
     trieLookupTimes(idx) = elapsedTimeTrie/numberOfIPs;
 end
 
+% Plotting the average lookup time results
 figure(1);
 plot(ipCounts, hashLookupTimes * 1000, '-', 'LineWidth', 2);
 hold on;
 plot(ipCounts, dleftLookupTimes * 1000, '-', 'LineWidth', 2);
 plot(ipCounts, trieLookupTimes * 1000, '-', 'LineWidth', 2);
 hold off;
-
 xlabel('Number of IPs');
 ylabel('Average Lookup Time (ms)');
 title('Average Lookup Times: Hash vs D-Left vs Trie');
 legend('Hash Table', 'D-Left Hashing', 'Trie','Location','best');
 grid on;
 
+%Plotting the average insert time results
 figure(2);
 plot(ipCounts, hashInsertTimes * 1000, '-', 'LineWidth', 2);
 hold on;
 plot(ipCounts, dleftInsertTimes * 1000, '-', 'LineWidth', 2);
 plot(ipCounts, trieInsertTimes * 1000, '-', 'LineWidth', 2);
 hold off;
-
 xlabel('Number of IPs');
 ylabel('Average Insert Time (ms)');
 title('Average Insert Times: Hash vs D-Left vs Trie');
 legend('Hash Table', 'D-Left Hashing', 'Trie','Location','best');
 grid on;
 
-
+%Plotting the number of collisions results
 figure(3);
 plot(ipCounts, hashCollisions, '-', 'LineWidth', 2);
 hold on;
 plot(ipCounts, dleftCollisions, '-', 'LineWidth', 2);
 hold off;
-
 xlabel('Number of IPs');
 ylabel('Number of Collisions)');
 title('Number of Collisions: Hash vs D-Left');
