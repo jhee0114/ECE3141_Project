@@ -11,7 +11,7 @@ function index = simpleHash(ip, tableSize)
 end
 
 % Insert function for hash table. With chaining in case of collision
-function hashTable = hashInsert(hashTable, ip, next, tableSize)
+function [hashTable, collisionCount] = hashInsert(hashTable, ip, next, tableSize, collisionCount)
     index = simpleHash(ip, tableSize);
     
     %Check if the cell is empty
@@ -19,6 +19,7 @@ function hashTable = hashInsert(hashTable, ip, next, tableSize)
         hashTable{index} = {ip, next};
     else
         hashTable{index} = [hashTable{index}; {ip, next}];
+        collisionCount = collisionCount + 1;
     end
 end
 
@@ -49,14 +50,17 @@ function index = dLeftHash(ip, subtableSize, seed)
 end
 
 % Insert function for d-left hashing
-function hashTable = dLeftInsert(hashTable, ip, next, d, subtableSize)
+function [hashTable, collisionCount] = dLeftInsert(hashTable, ip, next, d, subtableSize, collisionCount)
     minLen = inf; %Starting off at infinity for comparison
     chosenSub = 1; %Default starting sub table
-
+    
+    %Checking the collision
+    isCollision = true;
     for i = 1:d
         index = dLeftHash(ip, subtableSize, i);
         if isempty(hashTable{i}{index}) %check if that space is empty
             hashTable{i}{index} = struct('ip', ip, 'value', next);
+            isCollision = false;
             return;
         else 
             currentLen = length(hashTable{i}{index}); %Check the current length to find the subtable with the shortest length
@@ -69,7 +73,12 @@ function hashTable = dLeftInsert(hashTable, ip, next, d, subtableSize)
     end
 
     %Insert the IP address into the least loaded subTable
-    hashTable{chosenSub}{bestIndex}{end+1} = {ip, value}; %Chaining
+    hashTable{chosenSub}{bestIndex}(end+1) = struct('ip', ip, 'value', next);
+
+    %Check if collision has occurred or not
+    if isCollision
+        collisionCount = collisionCount + 1;
+    end
 end
 
 
@@ -81,8 +90,8 @@ function result = dLeftLookup(hashTable, ip, d, subtableSize)
         bucket = hashTable{i}{index};
         if ~isempty(bucket) % If the bucket is not empty
             for j = 1:length(bucket) %Look through all of the chained values
-                if bucket{j}.ip==ip
-                    result = bucket{j}.value;
+                if bucket(j).ip==ip
+                    result = bucket(j).value;
                     return;
                 end
             end
@@ -111,14 +120,16 @@ end
 function trie = trieInsert(trie, ip, value)
     binStr = ipToBinary(ip);
     node = trie;
-
+    
+    % Loop through all of the characters in the ip address
     for i = 1:32
+        % If the binary is 0, append to the left
         if binStr(i) == "0"
             if isempty(node.left)
                 node.left = createTrieNode();
             end
-        % the binary is 1
-        node = node.left;
+            node = node.left;
+        % IF the binary is 1, append to the right
         else
             if isempty(node.right)
                 node.right = createTrieNode();
@@ -134,7 +145,8 @@ function result = trieLookup(trie, ip)
     binStr = ipToBinary(ip);
     node = trie;
     result = "Miss";
-
+    
+    %Traverse through all of the values in the binary string
     for i = 1:32
         if isempty(node)
             return;
@@ -148,75 +160,152 @@ function result = trieLookup(trie, ip)
             node = node.right;
         end
     end
-
+    
+    %Return the value of the node
     if ~isempty(node) && ~isempty(node.value)
         result = node.value;
     end
 end
 
 %% Testing All the different algorithms
-numberOfIPs = 10000;
+
 %Generate a list of IP addresses
 function ipList = generateRandomIP(numberOfIPs)
     ipList = randi([0, 2^32-1], numberOfIPs, 1, 'uint32');
 end
 
-ipList = generateRandomIP(numberOfIPs);
+ipCounts = 1000:1000:10000;
+hashLookupTimes = zeros(size(ipCounts));
+dleftLookupTimes = zeros(size(ipCounts));
+trieLookupTimes = zeros(size(ipCounts));
 
-%Generate the hash table of ips
-hashTable = cell(1, numberOfIPs);
-for i = 1:length(ipList)
-    ip = ipList(i);
-    hashInsert(hashTable, ip, i, numberOfIPs);
+hashCollisions = zeros(size(ipCounts));
+dleftCollisions = zeros(size(ipCounts));
+
+hashInsertTimes = zeros(size(ipCounts));
+dleftInsertTimes = zeros(size(ipCounts));
+trieInsertTimes = zeros(size(ipCounts));
+
+for idx = 1:length(ipCounts)
+    numberOfIPs = ipCounts(idx);
+
+    ipList = generateRandomIP(numberOfIPs);
+    
+
+
+    %--- Hash Table----
+    %Generate the hash table of ips
+    collisionCountHash = 0;
+    hashTable = cell(1, numberOfIPs);
+    tic;
+    for i = 1:length(ipList)
+        ip = ipList(i);
+        [hashTable, collisionCountHash] = hashInsert(hashTable, ip, i, numberOfIPs, collisionCountHash);
+    end
+    elapsedTimeHash = toc;
+    hashInsertTimes(idx) = elapsedTimeHash/numberOfIPs;
+    hashCollisions(idx) = collisionCountHash;
+
+    %Time lookup time for Hash Table
+    tic;
+    for i = 1:length(ipList)
+        ip = ipList(i);
+        next = hashLookup(hashTable, ip, numberOfIPs);
+    end
+    elapsedTimeHash = toc;
+    hashLookupTimes(idx) = elapsedTimeHash/numberOfIPs;
+
+
+
+     %--- d-left Hash Table ----
+    
+    %Generate the d-left hash table of ips
+    d = 4; %number of sub tables
+    subtableSize = ceil(numberOfIPs/4); %Must contain all of the entries
+    
+    %Iniitilize d-left hash table
+    collisionCountdLeft = 0;
+    dLeftHashTable = cell(1, d);
+    for i = 1:d
+        dLeftHashTable{i} = cell(1, subtableSize);
+    end
+    
+    %Insert the IPs into the d-left hashTable
+    tic;
+    for i = 1:length(ipList)
+        ip = ipList(i);
+        [dLeftHashTable, collisionCountdLeft] = dLeftInsert(dLeftHashTable, ip, i, d, subtableSize, collisionCountdLeft);
+    end
+    elapsedTimedLeft = toc;
+    dleftCollisions(idx) = collisionCountdLeft;
+    dleftInsertTimes(idx) = elapsedTimedLeft/numberOfIPs;
+
+    %Time lookup time for d-Left Hash Table
+    tic;
+    for i = 1:length(ipList)
+        ip = ipList(i);
+        next = dLeftLookup(dLeftHashTable, ip, d, subtableSize);
+    end
+    elapsedTimedLeft = toc;
+    dleftLookupTimes(idx) = elapsedTimedLeft/numberOfIPs;
+
+
+
+    % --- Trie ---
+    trie = createTrieNode();
+    
+    %Generate the Trie 
+    tic
+    for i = 1:numberOfIPs
+        trie = trieInsert(trie, ipList(i), i);
+    end
+    elapsedTimeTrie = toc;
+    trieInsertTimes(idx) = elapsedTimeTrie/numberOfIPs;
+    
+    % Time the lookup
+    tic;
+    for i = 1:numberOfIPs
+        result = trieLookup(trie, ipList(i));
+    end
+    elapsedTimeTrie = toc;
+    trieLookupTimes(idx) = elapsedTimeTrie/numberOfIPs;
 end
 
-%Generate the d-left hash table of ips
-d = 4; %number of sub tables
-subtableSize = ceil(numberOfIPs/4); %Must contain all of the entries
+figure(1);
+plot(ipCounts, hashLookupTimes * 1000, '-', 'LineWidth', 2);
+hold on;
+plot(ipCounts, dleftLookupTimes * 1000, '-', 'LineWidth', 2);
+plot(ipCounts, trieLookupTimes * 1000, '-', 'LineWidth', 2);
+hold off;
 
-%Iniitilize d-left hash table
-dLeftHashTable = cell(1, d);
-for i = 1:d
-    dLeftHashTable{i} = cell(1, subtableSize);
-end
+xlabel('Number of IPs');
+ylabel('Average Lookup Time (ms)');
+title('Average Lookup Times: Hash vs D-Left vs Trie');
+legend('Hash Table', 'D-Left Hashing', 'Trie','Location','best');
+grid on;
 
-%Insert the IPs into the d-left hashTable
-for i = 1:length(ipList)
-    ip = ipList(i);
-    dLeftInsert(dLeftHashTable, ip, i, d, subtableSize);
-end
+figure(2);
+plot(ipCounts, hashInsertTimes * 1000, '-', 'LineWidth', 2);
+hold on;
+plot(ipCounts, dleftInsertTimes * 1000, '-', 'LineWidth', 2);
+plot(ipCounts, trieInsertTimes * 1000, '-', 'LineWidth', 2);
+hold off;
 
-trie = createTrieNode();
-
-for i = 1:numberOfIPs
-    trie = trieInsert(trie, ipList(i), i);
-end
-
-%Time lookup time for Hash Table
-tic;
-for i = 1:length(ipList)
-    ip = ipList(i);
-    next = hashLookup(hashTable, ip, numberOfIPs);
-end
-elapsedTimeHash = toc;
-fprintf('Average lookup time for Hash table with %d entries: %.6f ms\n', numberOfIPs, (elapsedTimeHash / numberOfIPs) * 1000);
+xlabel('Number of IPs');
+ylabel('Average Insert Time (ms)');
+title('Average Insert Times: Hash vs D-Left vs Trie');
+legend('Hash Table', 'D-Left Hashing', 'Trie','Location','best');
+grid on;
 
 
-%Time lookup time for d-Left Hash Table
-tic;
-for i = 1:length(ipList)
-    ip = ipList(i);
-    next = dLeftLookup(dLeftHashTable, ip, d, subtableSize);
-end
-elapsedTimeHash = toc;
-fprintf('Average lookup time for d-left Hash table with %d entries: %.6f ms\n', numberOfIPs, (elapsedTimeHash / numberOfIPs) * 1000);
+figure(3);
+plot(ipCounts, hashCollisions, '-', 'LineWidth', 2);
+hold on;
+plot(ipCounts, dleftCollisions, '-', 'LineWidth', 2);
+hold off;
 
-
-% Time the lookup
-tic;
-for i = 1:numberOfIPs
-    result = trieLookup(trie, ipList(i));
-end
-elapsedTimeTrie = toc;
-
-fprintf('Average lookup time for trie lookup with %d entries: %.6f ms\n', numberOfIPs, (elapsedTimeTrie / numberOfIPs) * 1000);
+xlabel('Number of IPs');
+ylabel('Number of Collisions)');
+title('Number of Collisions: Hash vs D-Left');
+legend('Hash Table', 'D-Left Hashing','Location','best');
+grid on;
