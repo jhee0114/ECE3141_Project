@@ -1,3 +1,4 @@
+clear all; close all; clc;
 %% Normal Hash table
 
 % Making the hash function
@@ -55,7 +56,7 @@ function hashTable = dLeftInsert(hashTable, ip, next, d, subtableSize)
     for i = 1:d
         index = dLeftHash(ip, subtableSize, i);
         if isempty(hashTable{i}{index}) %check if that space is empty
-            hashTable{i}{index} = {ip, next};
+            hashTable{i}{index} = struct('ip', ip, 'value', next);
             return;
         else 
             currentLen = length(hashTable{i}{index}); %Check the current length to find the subtable with the shortest length
@@ -80,8 +81,8 @@ function result = dLeftLookup(hashTable, ip, d, subtableSize)
         bucket = hashTable{i}{index};
         if ~isempty(bucket) % If the bucket is not empty
             for j = 1:length(bucket) %Look through all of the chained values
-                if isequal(bucket{j}{1}, ip)
-                    result = bucket{j}{2};
+                if bucket{j}.ip==ip
+                    result = bucket{j}.value;
                     return;
                 end
             end
@@ -91,8 +92,41 @@ function result = dLeftLookup(hashTable, ip, d, subtableSize)
 end
 
 
+
+%% Trie-Based Lookup
+
+function node = createTrieNode()
+    node.left = []; %For bit 0
+    node.right = []; %For bit 1
+    node.ip = []; %The ip value
+end
+
+function binStr = ipToBinary(ip)
+    binStr = dec2bin(ip, 32); %Return the 32 bit binary string
+end
+
+function trie = insertIP(trie, ip, value)
+    binStr = ipToBinary(ip);
+    node = trie;
+
+    for i = 1:32
+        if binStr(i) == "0"
+            if isempty(node.left)
+                node.left = createTrieNode();
+            end
+        % the binary is 1
+        node = node.left;
+        else
+            if isempty(node.right)
+                node.right = createTrieNode();
+            end
+            node = node.right;
+        end
+
+        node.
+end
 %% Testing All the different algorithms
-numberOfIPs = 10;
+numberOfIPs = 10000;
 %Generate a list of IP addresses
 function ipList = generateRandomIP(numberOfIPs)
     ipList = randi([0, 2^32-1], numberOfIPs, 1, 'uint32');
@@ -114,20 +148,30 @@ subtableSize = ceil(numberOfIPs/4); %Must contain all of the entries
 %Iniitilize d-left hash table
 dLeftHashTable = cell(1, d);
 for i = 1:d
-    hashTable{i} = cell(1, subtableSize);
+    dLeftHashTable{i} = cell(1, subtableSize);
 end
 
 %Insert the IPs into the hashTable
 for i = 1:length(ipList)
     ip = ipList(i);
-    dLeftInsert(dLeftHashTable, ip, d, subtableSize);
+    dLeftInsert(dLeftHashTable, ip, i, d, subtableSize);
 end
 
-%Time lookup time
+%Time lookup time for Hash Table
 tic;
 for i = 1:length(ipList)
     ip = ipList(i);
     next = hashLookup(hashTable, ip, numberOfIPs);
 end
-elapsedTime = toc;
-fprintf('Average lookup time: %.6f ms\n', (elapsedTime / numberOfIPs) * 1000);
+elapsedTimeHash = toc;
+fprintf('Average lookup time for Hash table with %d entries: %.6f ms\n', numberOfIPs, (elapsedTimeHash / numberOfIPs) * 1000);
+
+
+%Time lookup time for d-Left Hash Table
+tic;
+for i = 1:length(ipList)
+    ip = ipList(i);
+    next = dLeftLookup(dLeftHashTable, ip, d, subtableSize);
+end
+elapsedTimeHash = toc;
+fprintf('Average lookup time for d-left Hash table with %d entries: %.6f ms\n', numberOfIPs, (elapsedTimeHash / numberOfIPs) * 1000);

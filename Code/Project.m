@@ -92,6 +92,68 @@ function result = dLeftLookup(hashTable, ip, d, subtableSize)
 end
 
 
+
+%% Trie-Based Lookup
+
+%Function to make a trie node
+function node = createTrieNode()
+    node.left = []; %For bit 0
+    node.right = []; %For bit 1
+    node.value = []; %The ip value
+end
+
+%Convert the ip to a binary string to create the tree
+function binStr = ipToBinary(ip)
+    binStr = dec2bin(ip, 32); %Return the 32 bit binary string
+end
+
+% Insert the ip into the tree
+function trie = trieInsert(trie, ip, value)
+    binStr = ipToBinary(ip);
+    node = trie;
+
+    for i = 1:32
+        if binStr(i) == "0"
+            if isempty(node.left)
+                node.left = createTrieNode();
+            end
+        % the binary is 1
+        node = node.left;
+        else
+            if isempty(node.right)
+                node.right = createTrieNode();
+            end
+            node = node.right;
+        end
+    end
+    node.value = value;
+end
+
+%Traverse through the tree
+function result = trieLookup(trie, ip)
+    binStr = ipToBinary(ip);
+    node = trie;
+    result = "Miss";
+
+    for i = 1:32
+        if isempty(node)
+            return;
+        end
+        if ~isempty(node.value)
+            result = node.value;
+        end
+        if (binStr(i))=='0'
+            node = node.left;
+        else
+            node = node.right;
+        end
+    end
+
+    if ~isempty(node) && ~isempty(node.value)
+        result = node.value;
+    end
+end
+
 %% Testing All the different algorithms
 numberOfIPs = 10000;
 %Generate a list of IP addresses
@@ -118,10 +180,16 @@ for i = 1:d
     dLeftHashTable{i} = cell(1, subtableSize);
 end
 
-%Insert the IPs into the hashTable
+%Insert the IPs into the d-left hashTable
 for i = 1:length(ipList)
     ip = ipList(i);
     dLeftInsert(dLeftHashTable, ip, i, d, subtableSize);
+end
+
+trie = createTrieNode();
+
+for i = 1:numberOfIPs
+    trie = trieInsert(trie, ipList(i), i);
 end
 
 %Time lookup time for Hash Table
@@ -142,3 +210,13 @@ for i = 1:length(ipList)
 end
 elapsedTimeHash = toc;
 fprintf('Average lookup time for d-left Hash table with %d entries: %.6f ms\n', numberOfIPs, (elapsedTimeHash / numberOfIPs) * 1000);
+
+
+% Time the lookup
+tic;
+for i = 1:numberOfIPs
+    result = trieLookup(trie, ipList(i));
+end
+elapsedTimeTrie = toc;
+
+fprintf('Average lookup time for trie lookup with %d entries: %.6f ms\n', numberOfIPs, (elapsedTimeTrie / numberOfIPs) * 1000);
