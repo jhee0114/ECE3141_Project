@@ -141,31 +141,55 @@ function trie = trieInsert(trie, ip, value)
 end
 
 %Traverse through the tree
+%function result = trieLookup(trie, ip)
+%    binStr = ipToBinary(ip);
+%    node = trie;
+%    result = "Miss";
+    
+%    %Traverse through all of the values in the binary string
+%    for i = 1:32
+%        if isempty(node)
+%            return;
+%        end
+%        if ~isempty(node.value)
+%            result = node.value;
+%        end
+%        if (binStr(i))=='0'
+%            node = node.left;
+%        else
+%            node = node.right;
+%        end
+%    end
+    
+%    %Return the value of the node
+%    if ~isempty(node) && ~isempty(node.value)
+%        result = node.value;
+%    end
+%end
 function result = trieLookup(trie, ip)
     binStr = ipToBinary(ip);
     node = trie;
-    result = "Miss";
-    
-    %Traverse through all of the values in the binary string
+
     for i = 1:32
         if isempty(node)
+            result = "Miss";
             return;
         end
-        if ~isempty(node.value)
-            result = node.value;
-        end
-        if (binStr(i))=='0'
+        if binStr(i) == '0'
             node = node.left;
         else
             node = node.right;
         end
     end
-    
-    %Return the value of the node
+
+    % After finishing all 32 bits, check if exact match is found
     if ~isempty(node) && ~isempty(node.value)
         result = node.value;
+    else
+        result = "Miss";
     end
 end
+
 
 %% Testing All the different algorithms
 
